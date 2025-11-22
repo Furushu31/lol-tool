@@ -42,7 +42,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------
-# データ取得
+# データ取得 (修正: 数字IDも取得するように変更)
 # -----------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -56,7 +56,13 @@ def load_data():
         for key, val in data.items():
             display_name = f"{val['name']} ({key})" 
             champ_list.append(display_name)
-            id_map[display_name] = key
+            
+            # 【重要】ここで 名前(id) と 数字(key) の両方を保存します
+            id_map[display_name] = {
+                'id': key,          # 例: Renekton (英語名)
+                'key': val['key']   # 例: 58 (数字ID) -> LOL.PS用
+            }
+            
         return version, sorted(champ_list), id_map
     except:
         return None, [], {}
@@ -64,7 +70,9 @@ def load_data():
 # -----------------------------------------------------------
 # 表示用関数
 # -----------------------------------------------------------
-def show_champion_data(champ_id, champ_name_jp, version, is_enemy=False):
+def show_champion_data(champ_data, champ_name_jp, version, is_enemy=False):
+    champ_id = champ_data['id'] # 英語名
+    
     detail_url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/ja_JP/champion/{champ_id}.json"
     try:
         res = requests.get(detail_url).json()['data'][champ_id]
@@ -149,40 +157,43 @@ def main():
 
     # 1. 両方選択 (マッチアップ)
     if my_choice and enemy_choice:
-        my_id = id_map[my_choice]
-        enemy_id = id_map[enemy_choice]
+        my_data = id_map[my_choice]
+        enemy_data = id_map[enemy_choice]
         enemy_name_jp = enemy_choice.split(" (")[0]
         
-        show_champion_data(enemy_id, enemy_name_jp, version, is_enemy=True)
+        show_champion_data(enemy_data, enemy_name_jp, version, is_enemy=True)
 
         st.subheader("🚀 Matchup Guides")
-        url_my = "wukong" if my_id == "MonkeyKing" else my_id.lower()
-        url_enemy = "wukong" if enemy_id == "MonkeyKing" else enemy_id.lower()
         
+        # URL生成 (文字列IDを使用)
+        url_my = "wukong" if my_data['id'] == "MonkeyKing" else my_data['id'].lower()
+        url_enemy = "wukong" if enemy_data['id'] == "MonkeyKing" else enemy_data['id'].lower()
+        
+        # LOL.PSは数字IDを使用！
+        lolps_url = f"https://lol.ps/champ/{my_data['key']}/statistics/"
+
         deeplol = f"https://www.deeplol.gg/champions/{url_my}/build/top/{url_enemy}"
         ugg = f"https://u.gg/lol/champions/{url_my}/build?opp={url_enemy}"
-        lolps = f"https://lol.ps/champ/{url_my}/statistics/" # LOL.PSは自分の統計ページへ
         google = f"https://www.google.com/search?q=site:lol-guide.com+{enemy_name_jp}+カウンター"
 
         b1, b2, b3, b4 = st.columns(4)
         with b1: st.link_button("📘 解説 (LoL Guide)", google, use_container_width=True)
         with b2: st.link_button("🔥 OTP (DeepLoL)", deeplol, use_container_width=True)
         with b3: st.link_button("📈 統計 (U.GG)", ugg, use_container_width=True)
-        with b4: st.link_button("🇰🇷 メタ (LOL.PS)", lolps, use_container_width=True)
+        with b4: st.link_button("🇰🇷 メタ (LOL.PS)", lolps_url, use_container_width=True)
 
     # 2. 相手だけ選択 (カウンター確認)
     elif enemy_choice:
-        enemy_id = id_map[enemy_choice]
+        enemy_data = id_map[enemy_choice]
         enemy_name_jp = enemy_choice.split(" (")[0]
-        show_champion_data(enemy_id, enemy_name_jp, version, is_enemy=True)
+        show_champion_data(enemy_data, enemy_name_jp, version, is_enemy=True)
 
         st.subheader("🛡️ Counter Info")
-        url_enemy = "wukong" if enemy_id == "MonkeyKing" else enemy_id.lower()
+        url_enemy = "wukong" if enemy_data['id'] == "MonkeyKing" else enemy_data['id'].lower()
         
-        # U.GG Counters (最も信頼性が高い)
+        # LOL.PSは数字IDを使用！
+        lolps_link = f"https://lol.ps/champ/{enemy_data['key']}/statistics/"
         ugg_counter = f"https://u.gg/lol/champions/{url_enemy}/counter"
-        # LOL.PS (韓国メタ)
-        lolps_link = f"https://lol.ps/champ/{url_enemy}/statistics/"
 
         b1, b2 = st.columns(2)
         with b1: st.link_button("📉 U.GG (有利不利リスト)", ugg_counter, type="primary", use_container_width=True)
@@ -190,16 +201,18 @@ def main():
 
     # 3. 自分だけ選択 (ビルド確認)
     elif my_choice:
-        my_id = id_map[my_choice]
+        my_data = id_map[my_choice]
         my_name_jp = my_choice.split(" (")[0]
-        show_champion_data(my_id, my_name_jp, version, is_enemy=False)
+        show_champion_data(my_data, my_name_jp, version, is_enemy=False)
 
         st.subheader("🛠️ Build Guides")
-        url_my = "wukong" if my_id == "MonkeyKing" else my_id.lower()
+        url_my = "wukong" if my_data['id'] == "MonkeyKing" else my_data['id'].lower()
+        
+        # LOL.PSは数字IDを使用！
+        lolps_build = f"https://lol.ps/champ/{my_data['key']}/statistics/"
         
         ugg_build = f"https://u.gg/lol/champions/{url_my}/build"
         deeplol_build = f"https://www.deeplol.gg/champions/{url_my}/build"
-        lolps_build = f"https://lol.ps/champ/{url_my}/statistics/"
 
         b1, b2, b3 = st.columns(3)
         with b1: st.link_button("📈 U.GG (基本ビルド)", ugg_build, use_container_width=True)
