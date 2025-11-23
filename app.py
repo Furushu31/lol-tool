@@ -2,7 +2,21 @@ import streamlit as st
 import requests
 
 # ==============================================================================
-# 0. 秘伝の攻略データ (画像解析済み)
+# 0. ユーティリティ: カタカナ -> ひらがな変換 (検索用)
+# ==============================================================================
+def kata_to_hira(text):
+    hira = []
+    for char in text:
+        code = ord(char)
+        # カタカナの範囲 (ァ-ン)
+        if 0x30A1 <= code <= 0x30F6:
+            hira.append(chr(code - 0x60))
+        else:
+            hira.append(char)
+    return "".join(hira)
+
+# ==============================================================================
+# 1. 秘伝の攻略データ
 # ==============================================================================
 CUSTOM_DATA = {
     "Garen": {
@@ -320,11 +334,10 @@ CUSTOM_DATA = {
             {"name": "Jax", "reason": "EでAAを無効化し、Qで飛びつける。"},
         ]
     }
-    # 必要に応じてここに追加
 }
 
 # -----------------------------------------------------------
-# 1. データ取得
+# 2. データ取得
 # -----------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -336,7 +349,14 @@ def load_data():
         champ_list = []
         id_map = {} 
         for key, val in data.items():
-            display_name = f"{val['name']} ({key})" 
+            # ひらがなを追加して検索しやすくする
+            name_jp = val['name']
+            name_en = key
+            name_hira = kata_to_hira(name_jp)
+            
+            # 表示名: "ガレン (Garen) / がれん"
+            display_name = f"{name_jp} ({name_en}) / {name_hira}"
+            
             champ_list.append(display_name)
             id_map[display_name] = {'id': key, 'key': val['key']}
         return version, sorted(champ_list), id_map
@@ -344,129 +364,265 @@ def load_data():
         return None, [], {}
 
 # -----------------------------------------------------------
-# 2. メイン画面のスタイル設定 (横並び・コンパクト化)
+# 3. スタイル設定 (クロネコヤマト風)
 # -----------------------------------------------------------
-st.set_page_config(page_title="LOL.GG", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="LOL.GG", page_icon="🐱", layout="wide")
 
 st.markdown("""
     <style>
-    /* 全体 */
-    .stApp { background-color: #0f0f0f; color: #e0e0e0; }
-    h1 { font-family: 'Segoe UI', sans-serif; color: #c8aa6e; font-size: 2.5rem !important; text-align: center; margin: 0; padding: 0; }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
+    /* 全体のフォントと背景 */
+    .stApp {
+        background-color: #f5f5f5;
+        color: #333333;
+        font-family: 'Noto Sans JP', sans-serif;
+    }
+
+    /* ヘッダー */
+    .header-bar {
+        background-color: #1a1a1a; /* 黒 */
+        color: #ffcc00; /* ヤマトイエロー */
+        padding: 15px 20px;
+        font-size: 24px;
+        font-weight: 900;
+        border-bottom: 5px solid #ffcc00;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+    }
+    .header-sub {
+        font-size: 14px;
+        color: #fff;
+        margin-left: 15px;
+        font-weight: normal;
+    }
+
+    /* 検索ボックスエリア */
+    .search-box {
+        background-color: #ffffff;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
     
-    /* 検索バーをコンパクトに */
-    .search-container { background-color: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #444; margin-bottom: 10px; }
-    
-    /* 画像と情報の横並びレイアウト調整 */
-    .hero-img { width: 100%; border-radius: 8px; border: 1px solid #444; }
-    
-    /* スキルカード (コンパクト) */
-    .skill-box { background: #1a1a1a; border: 1px solid #333; padding: 5px; border-radius: 4px; text-align: center; margin-bottom: 5px; }
-    .skill-key { color: #c8aa6e; font-weight: bold; font-size: 0.9rem; }
-    .skill-val { color: #fff; font-weight: bold; font-size: 1rem; }
-    
-    /* 対策BOX (コンパクト) */
-    .tips-container { background-color: #222; padding: 10px; border-radius: 6px; border-left: 4px solid #ff4c4c; height: 100%; font-size: 0.9rem; }
-    .tips-header { color: #ff4c4c; font-weight: bold; margin-bottom: 5px; }
-    
+    /* 入力ラベル */
+    div[data-testid="stSelectbox"] label {
+        font-weight: bold;
+        color: #1a1a1a;
+        font-size: 16px;
+    }
+
+    /* メインコンテンツ枠 (白カード) */
+    .main-card {
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        height: 100%;
+    }
+
+    /* 画像のスタイル */
+    .champ-image {
+        width: 100%;
+        border: 2px solid #1a1a1a;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+
+    /* スキルボックス (運行状況風) */
+    .skill-container {
+        display: flex;
+        justify-content: space-between;
+        background-color: #eee;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .skill-item {
+        text-align: center;
+        flex: 1;
+        border-right: 1px solid #ccc;
+    }
+    .skill-item:last-child { border-right: none; }
+    .skill-name { font-size: 12px; color: #666; font-weight: bold; }
+    .skill-cd { font-size: 16px; color: #1a1a1a; font-weight: 900; }
+
+    /* 通知ボックス (危険なアクション) */
+    .alert-box {
+        background-color: #fff0f0;
+        border: 1px solid #ffcccc;
+        border-left: 5px solid #cc0000;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 2px;
+    }
+    .alert-title { color: #cc0000; font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+
+    /* Tipsボックス (意識すること) */
+    .tips-box {
+        background-color: #f0f8ff;
+        border: 1px solid #cceeff;
+        border-left: 5px solid #006699;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 2px;
+    }
+    .tips-title { color: #006699; font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+
     /* カウンターリスト */
-    .counter-row { display: flex; gap: 10px; margin-top: 5px; }
-    .counter-item { background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #555; font-size: 0.85rem; flex: 1; }
+    .counter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+    }
+    .counter-item {
+        background-color: #333;
+        color: #fff;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        flex: 1;
+    }
+    .counter-champ { color: #ffcc00; font-weight: bold; display: block; margin-bottom: 3px; }
+
+    /* ボタン (黄色) */
+    div.stButton > button {
+        background-color: #ffcc00;
+        color: #1a1a1a;
+        font-weight: bold;
+        border: none;
+        border-radius: 2px;
+        padding: 10px 0;
+        width: 100%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    div.stButton > button:hover {
+        background-color: #e6b800;
+        color: #000;
+    }
     
-    /* ボタン */
-    div.stButton > button { width: 100%; padding: 0.3rem; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------
-# 3. メイン処理
+# 4. メイン処理
 # -----------------------------------------------------------
 def main():
-    st.markdown("<h1>LOL.GG</h1>", unsafe_allow_html=True)
+    # ヘッダー
+    st.markdown("""
+        <div class="header-bar">
+            LOL.GG
+            <span class="header-sub">CHAMPION TRANSPORT SYSTEM</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     version, champ_list, id_map = load_data()
     if not version: return
 
-    # === 検索エリア ===
+    # 検索エリア
     with st.container():
+        st.markdown('<div class="search-box">', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            my_choice = st.selectbox("🔵 自分", champ_list, index=None, placeholder="Select Your Champ...", label_visibility="collapsed")
+            my_choice = st.selectbox("■ ご依頼主 (Your Pick)", champ_list, index=None, placeholder="チャンピオン名を入力...", label_visibility="visible")
         with c2:
-            enemy_choice = st.selectbox("🔴 相手", champ_list, index=None, placeholder="Select Enemy Champ...", label_visibility="collapsed")
+            enemy_choice = st.selectbox("■ お届け先 (Enemy Pick)", champ_list, index=None, placeholder="チャンピオン名を入力...", label_visibility="visible")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # === データ表示エリア (横並びレイアウト) ===
+    # === メインコンテンツ (1:2カラム 横並び) ===
     if enemy_choice:
         enemy_data = id_map[enemy_choice]
         champ_id = enemy_data['id']
         
-        # Riot APIデータ取得
-        detail_url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/ja_JP/champion/{champ_id}.json"
+        # Riot API
         try:
+            detail_url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/ja_JP/champion/{champ_id}.json"
             res = requests.get(detail_url).json()['data'][champ_id]
             spells = res['spells']
         except: return
 
-        st.divider()
-        
-        # ★ここが新レイアウト (左：画像 / 右：情報)
-        col_left, col_right = st.columns([1, 2]) # 1:2の比率
-        
-        # --- 左カラム：画像 ---
+        # レイアウト分割
+        col_left, col_right = st.columns([1, 2])
+
+        # --- 左カラム: 画像とボタン ---
         with col_left:
+            st.markdown('<div class="main-card">', unsafe_allow_html=True)
+            
+            # 画像
             splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champ_id}_0.jpg"
             st.image(splash_url, use_container_width=True)
             
-            # 外部リンクボタン
+            st.markdown("#### 外部リンク")
             url_enemy = "wukong" if champ_id == "MonkeyKing" else champ_id.lower()
-            st.link_button("📉 U.GG (カウンター)", f"https://u.gg/lol/champions/{url_enemy}/counter", use_container_width=True)
-            st.link_button("🇰🇷 LOL.PS", f"https://lol.ps/champ/{enemy_data['key']}/statistics/", use_container_width=True)
-
-        # --- 右カラム：CD＆秘伝メモ ---
-        with col_right:
-            # 1. スキルCD (横並び)
-            c_q, c_w, c_e, c_r = st.columns(4)
-            keys = ['Q', 'W', 'E', 'R']
-            for i, col in enumerate([c_q, c_w, c_e, c_r]):
-                cd = "/".join(map(str, spells[i]['cooldown']))
-                col.markdown(f"<div class='skill-box'><span class='skill-key'>{keys[i]}</span><br><span class='skill-val'>{cd}</span></div>", unsafe_allow_html=True)
             
-            # 2. 秘伝の攻略メモ (あれば表示)
+            st.link_button("📉 U.GG (カウンター)", f"https://u.gg/lol/champions/{url_enemy}/counter", use_container_width=True)
+            st.link_button("🇰🇷 LOL.PS (統計)", f"https://lol.ps/champ/{enemy_data['key']}/statistics/", use_container_width=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- 右カラム: データと攻略メモ ---
+        with col_right:
+            st.markdown('<div class="main-card">', unsafe_allow_html=True)
+            
+            st.markdown("#### 📊 スキルクールダウン")
+            # スキルCD (横並び)
+            keys = ['Q', 'W', 'E', 'R']
+            cd_html = '<div class="skill-container">'
+            for i, spell in enumerate(spells):
+                cd = "/".join(map(str, spell['cooldown']))
+                cd_html += f'<div class="skill-item"><div class="skill-name">{keys[i]}</div><div class="skill-cd">{cd}</div></div>'
+            cd_html += '</div>'
+            st.markdown(cd_html, unsafe_allow_html=True)
+
+            # 秘伝の攻略メモ
             if champ_id in CUSTOM_DATA:
                 cust = CUSTOM_DATA[champ_id]
                 
-                # 危険なアクション & Tips
-                tips_html = ""
+                # 危険なアクション
                 if "danger" in cust:
-                    tips_html += f"<div style='color:#ff4c4c; font-weight:bold;'>⚠ 危険なアクション</div><ul>"
-                    for d in cust['danger']: tips_html += f"<li>{d}</li>"
-                    tips_html += "</ul>"
+                    html = '<div class="alert-box"><div class="alert-title">⚠ 危険なアクション</div><ul>'
+                    for d in cust['danger']: html += f'<li>{d}</li>'
+                    html += '</ul></div>'
+                    st.markdown(html, unsafe_allow_html=True)
                 
+                # 意識すること
                 if "tips" in cust:
-                    tips_html += f"<div style='color:#0ac8b9; font-weight:bold; margin-top:10px;'>💡 意識すること</div><ul>"
-                    for t in cust['tips']: tips_html += f"<li>{t}</li>"
-                    tips_html += "</ul>"
-                
-                if tips_html:
-                    st.markdown(f"<div class='tips-container'>{tips_html}</div>", unsafe_allow_html=True)
+                    html = '<div class="tips-box"><div class="tips-title">💡 意識すること</div><ul>'
+                    for t in cust['tips']: html += f'<li>{t}</li>'
+                    html += '</ul></div>'
+                    st.markdown(html, unsafe_allow_html=True)
 
                 # カウンター情報
                 if "counters" in cust:
-                    st.markdown("##### 🛡️ 有利ピック & 理由")
+                    st.markdown("#### 🛡️ 推奨カウンター")
                     for c in cust['counters']:
-                        st.info(f"**VS {c['name']}**: {c['reason']}")
-
+                        st.markdown(f"""
+                        <div class="counter-row">
+                            <div class="counter-item">
+                                <span class="counter-champ">VS {c['name']}</span>
+                                {c['reason']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
             else:
-                st.info("※ このチャンピオンのカスタム攻略メモはまだありません。")
+                st.info("※ このチャンピオンの特別攻略メモは登録されていません。")
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
     # === 自分のキャラ用リンク (OTP Ranking) ===
     if my_choice:
         my_data = id_map[my_choice]
         my_url = "wukong" if my_data['id'] == "MonkeyKing" else my_data['id'].lower()
         
-        st.success(f"🔵 **{my_choice}** 選択中")
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown(f"##### 🔵 選択中: {my_choice.split('/')[0]}")
+        
         c1, c2 = st.columns(2)
         with c1:
-            # DeepLoL OTP Ranking (Mastery)
             st.link_button("🔥 DeepLoL (OTP Ranking)", f"https://www.deeplol.gg/champions/{my_url}/mastery", use_container_width=True)
         with c2:
             st.link_button("📈 U.GG (Build)", f"https://u.gg/lol/champions/{my_url}/build", use_container_width=True)
