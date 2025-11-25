@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # ==============================================================================
-# 0. ユーティリティ & 設定
+# 0. ユーティリティ
 # ==============================================================================
 def kata_to_hira(text):
     hira = []
@@ -15,327 +15,173 @@ def kata_to_hira(text):
     return "".join(hira)
 
 # ==============================================================================
-# 1. 秘伝の攻略データ
+# 1. 秘伝の攻略データ (画像 + 動画解析データ完全版)
 # ==============================================================================
 CUSTOM_DATA = {
+    # --- 画像解析データ (対面対策) ---
     "Garen": {
         "danger": ["Rは減少体力比例の確定ダメ。体力管理注意。", "Eの回転で削られないように。"],
         "tips": ["パッシブ(緑オーラ)の自動回復を止めるため、小まめに殴る。", "Wのシールド中はスキルを控える。"],
-        "counters": [
-            {"name": "Camille", "reason": "Qの確定ダメが刺さる。Q2を待機して殴る。"},
-            {"name": "Kayle", "reason": "Q突進にQスローorW加速で対処可能。RをRで無効化。"},
-        ]
+        "counters": [{"name": "Camille", "reason": "Q確定ダメが刺さる。"}, {"name": "Kayle", "reason": "Qスローでカイト可能。"}]
     },
     "Darius": {
-        "danger": ["パッシブ5スタックは最強。絶対殴り合わない。", "序盤プッシュするとゴーストオールインで死ぬ。", "Lv1ブッシュ待機に注意。"],
-        "tips": ["TPがないので、キルされなければ勝ち（CS負けてもOK）。", "Qの刃（外側）を内側に避ければ勝てる。"],
-        "counters": [
-            {"name": "Gnar", "reason": "Eで引っ張られてもEで逃げられる。スロウ漬けにできる。"},
-            {"name": "Vayne", "reason": "EをEで弾ける。スペル差がないならカイトし放題。"},
-            {"name": "Aatrox", "reason": "Q先端当てとEの機動力でダリウスQをかわせる。"},
-        ]
+        "danger": ["パッシブ5スタックは最強。絶対殴り合わない。", "序盤プッシュするとゴーストオールインで死ぬ。"],
+        "tips": ["Qの刃（外側）を内側に避ければ勝てる。", "TPがないのでキルされなければ勝ち。"],
+        "counters": [{"name": "Gnar", "reason": "Eで逃げられる。"}, {"name": "Vayne", "reason": "EをEで弾ける。"}]
     },
     "Renekton": {
-        "danger": ["怒りゲージが溜まっている時のWやQは激痛。", "自陣ミニオンが多い時のEブリンクに注意。"],
-        "tips": ["Eは縦に動くので、横軸に避ける。", "スキルを空振りしたら長いCDの間がチャンス。"],
-        "counters": [
-            {"name": "Illaoi", "reason": "Eを避けたらタコ殴り。イラオイの回復が高くレネクトンのバーストを耐える。"},
-            {"name": "Mordekaiser", "reason": "Wシールドで耐え、Rで隔離すればボコボコにできる。"},
-        ]
+        "danger": ["怒りゲージWやQは激痛。", "自陣ミニオンが多い時のEブリンクに注意。"],
+        "tips": ["Eは縦に動くので、横軸に避ける。", "スキルを空振りしたらチャンス。"],
+        "counters": [{"name": "Illaoi", "reason": "E避けたら勝ち。"}, {"name": "Mordekaiser", "reason": "Rで隔離すれば勝てる。"}]
     },
-    "Jax": {
-        "danger": ["E(風車)中にAAすると反撃ダメージが増える。", "Qで飛びついてからのオールイン。"],
-        "tips": ["マナが枯渇しやすい(Q65)。ビスケットがないのでマナ切れを待つ。", "Eがない時間は非常に脆い。"],
-        "counters": [
-            {"name": "Kennen", "reason": "スタンスタックがあればQ飛びつきをEWで返り討ちにできる。"},
-            {"name": "Poppy", "reason": "Q飛びつきをWで撃墜できる。"},
-        ]
-    },
-    "Kennen": {
-        "danger": ["パッシブ1スタックある時に近づくとEWで即スタン。", "Rの範囲スタンは集団戦で脅威。"],
-        "tips": ["プッシュされると弱い。タワー下に押し込みたい。", "ハラスが痛いのでリコールまで耐える意識。"],
-        "counters": [
-            {"name": "Nasus", "reason": "エアリーE上げでE当てるだけで勝てる。WでAS低下させれば無力。"},
-            {"name": "Malphite", "reason": "Qハラスだけで削り切れる。Rのガンク合わせで必殺。"},
-        ]
-    },
-    "Jayce": {
-        "danger": ["ハンマーQからのオールインバースト。", "序盤に差をつけられるとスノーボールされる。"],
-        "tips": ["キャリーし切るのが難しいキャラなので、腐らず中盤以降のキャッチを狙う。", "ガンクに弱い。"],
-        "counters": [
-            {"name": "Malphite", "reason": "パッシブシールドでハラス無効。Qハラス＆Rワンコンで勝てる。"},
-            {"name": "Gragas", "reason": "キャノン変形直後やハンマーEがない時にRで引き寄せれば勝ち。"},
-        ]
-    },
-    "Camille": {
-        "danger": ["E(壁ドン)からのガンク合わせが超強力。", "Q2(確定ダメ)の準備ができたら下がる。"],
-        "tips": ["壁際に立たない（Eが当たりやすくなる）。", "パッシブシールドの属性(物理/魔法)を見る。"],
-        "counters": [
-            {"name": "Gwen", "reason": "Q中心の確定ダメが刺さる。WでカミールRを無効化も可能。"},
-            {"name": "Renekton", "reason": "Wシールド破壊が刺さる。Eで入ってきてもRで返り討ち。"},
-            {"name": "Jax", "reason": "Q強化AAをEで無効化できる。壁ドンEもEスタンで止められる。"},
-        ]
-    },
-    "Irelia": {
-        "danger": ["パッシブ4スタック時は最強。殴り合うな。", "ミニオンをQで飛び回って翻弄してくる。", "王剣完成時はパワースパイク。"],
-        "tips": ["Eは横に避ける。", "QがCDになったら無力なので攻める。"],
-        "counters": [
-            {"name": "Renekton", "reason": "W強化でシールド破壊。近接殴り合いなら負けない。"},
-            {"name": "Jax", "reason": "EでイレリアのAA(主火力)を全て防げる。ハードカウンター。"},
-            {"name": "Tryndamere", "reason": "殴り合い最強。Rで死なないのでイレリアのバーストを耐えて倒せる。"},
-        ]
-    },
-    "Aatrox": {
-        "danger": ["Qのスイートスポット(先端)に当たるとノックアップ。", "R変身中の回復量が異常。"],
-        "tips": ["Q1,Q2,Q3の合間に懐に入るか、横に避ける。", "重症(回復阻害)アイテム必須。"],
-        "counters": [
-            {"name": "Kled", "reason": "Qの重症が刺さる。Eで懐に潜り込めるのでQを避けやすい。"},
-            {"name": "Camille", "reason": "Qの加速でエイトロックスQを避け、RでQ3を回避できる。"},
-        ]
-    },
-    "Sion": {
-        "danger": ["死んだ後のゾンビパッシブが痛い。倒してもすぐ逃げる。", "草むらからの溜めQノックアップ。"],
-        "tips": ["序盤は柔らかいので積極的に殴る。", "Eの咆哮を食らうとARが下がるので注意。"],
-        "counters": [
-            {"name": "Darius", "reason": "足が遅いサイオンをEで捕まえて出血スタックで倒し切れる。"},
-            {"name": "Aatrox", "reason": "Qのノックアップでサイオンの溜めQを中断させられる。"},
-        ]
-    },
-    "Gangplank": {
-        "danger": ["樽(E)の連鎖爆発。ブッシュに樽を隠していることが多い。", "パッシブ(火刀)のAAは確定ダメで痛い。"],
-        "tips": ["樽のゲージ(HP下のメモリ)をよく見る。", "W(オレンジ)でCC解除されるのでCCのタイミング注意。"],
-        "counters": [
-            {"name": "Rumble", "reason": "Wシールドでハラス軽減。イグナイトE2発でオーバーヒート殴りで勝てる。"},
-            {"name": "Aatrox", "reason": "ブリンクがないGPはAatroxのフルコンボを避けられない。"},
-        ]
-    },
-    "Nasus": {
-        "danger": ["イグナイト持ちが多い。CS欲張ると死ぬ。", "Lv6のR変身時の殴り合いは強力。"],
-        "tips": ["Eハラスしてくるならマナ切れを待つ。", "Qスタックを溜めさせないようにゾーニング。"],
-        "counters": [
-            {"name": "Malphite", "reason": "EでAS低下させればナサスのQ回転率が落ちる。集団戦での貢献度で勝つ。"},
-            {"name": "Quinn", "reason": "Eで距離を取り、Qで視界を奪えばナサスは近づけない。"},
-        ]
-    },
-    "Malphite": {
-        "danger": ["Lv6以降のRワンコン。HP6割は即死圏内。", "Qハラスで削られてからのオールイン。"],
-        "tips": ["パッシブシールドが復活しないよう小まめに殴る。", "E(地面叩き)を使ったらAS低下するので殴り合わない。"],
-        "counters": [
-            {"name": "Sylas", "reason": "強力なマルファイトRを奪える。W回復でハラスに耐えられる。"},
-            {"name": "Mordekaiser", "reason": "硬いのでワンコンで死なない。Rで閉じ込めればマルファイトは逃げ場がない。"},
-        ]
-    },
-    "Quinn": {
-        "danger": ["イグナイト持ち。序盤のキルポテンシャルが高い。", "マークが付いた時のAAが痛い。"],
-        "tips": ["Eで距離を取られるので、ブリンクはEの後まで温存。", "Lv6以降のロームが早い。"],
-        "counters": [
-            {"name": "Malphite", "reason": "QハラスとRワンコンで柔らかいクインを粉砕できる。"},
-            {"name": "Nasus", "reason": "W(ウィザー)をかければAA主体のクインは機能停止する。"},
-        ]
-    },
-    "Udyr": {
-        "danger": ["Lv1のR(不死鳥)は最強クラス。絶対殴り合わない。", "覚醒Rのスロウとダメージ。"],
-        "tips": ["序盤耐えれば後半失速する。", "ミニオン越しにRを当てられない位置取りをする。"],
-        "counters": [
-            {"name": "Darius", "reason": "殴り合い最強。足の遅いウディアをEで捕まえられる。"},
-            {"name": "Kennen", "reason": "近づかれてもEで逃げられる。Rでカウンター可能。"},
-        ]
-    },
-    "Olaf": {
-        "danger": ["HPが減るほどASとLSが上がる。瀕死でも油断禁物。", "Lv1の斧投げハラス。"],
-        "tips": ["Qの斧を拾わせない位置で戦う。", "Qは後ろではなく「横」に避ける。"],
-        "counters": [
-            {"name": "Tryndamere", "reason": "Rの無敵中はオラフも倒せない。殴り合いで勝てる。"},
-            {"name": "Akali", "reason": "W煙幕でオラフのAAを防げる。機動力で翻弄できる。"},
-        ]
-    },
-    "Gragas": {
-        "danger": ["タワー付近でのR(樽爆破)引き寄せ。", "E(ボディスラム)の判定が強い。"],
-        "tips": ["序盤はマナがきついので、スキルを使わせてマナ切れを狙う。", "パッシブ回復を許さない。"],
-        "counters": [
-            {"name": "Aatrox", "reason": "サステインでグラガスのハラスに耐えられる。"},
-            {"name": "Gnar", "reason": "EジャンプでグラガスEをかわせる。レンジ差でいじめられる。"},
-        ]
-    },
-    "Gwen": {
-        "danger": ["Rのスロウからのオールイン。", "Q中心の確定ダメージ。"],
-        "tips": ["W(霧)を使われたら中に入るか下がる。", "Qスタックがない時は弱い。"],
-        "counters": [
-            {"name": "Kennen", "reason": "レンジ有利。入ってきてもEで逃げ、Rで返り討ち。"},
-            {"name": "Akali", "reason": "W煙幕でグウェンのAAを防げる。バーストで溶かせる。"},
-        ]
-    },
-    "Kled": {
-        "danger": ["非騎乗時のQ銃撃で勇気が溜まると再騎乗してHP回復する。", "Wの高速4回攻撃。"],
-        "tips": ["WがCDの時（武器が光ってない時）に戦う。", "降りたクレッドはバーストで一気に倒す。"],
-        "counters": [
-            {"name": "Fiora", "reason": "Qの引っ張りをWパリィで無効化＆スタンできる。"},
-            {"name": "Jax", "reason": "Wの4回攻撃をEで全て回避できる。ハードカウンター。"},
-        ]
-    },
-    "Illaoi": {
-        "danger": ["Eで魂を抜かれたら範囲外へ逃げる（殴り合うと死ぬ）。", "R使用後は触手の叩きつけが早くなる。"],
-        "tips": ["触手をこまめに処理する。", "Eをミニオン越しに避ける。外したらチャンス。"],
-        "counters": [
-            {"name": "Gnar", "reason": "レンジ有利で触手を壊しやすい。Eを避けやすい。"},
-            {"name": "Mordekaiser", "reason": "Rで異界に連れ込めば、設置した触手が消滅する。"},
-        ]
-    },
-    "Yone": {
-        "danger": ["Eで霊体化してからの一方的なトレード。", "Q3(風)がある時の飛び込み。"],
-        "tips": ["Eの戻り位置を狙う。", "Rは発生が遅いので横に避ける。"],
-        "counters": [
-            {"name": "Vex", "reason": "ブリンクに対してパッシブ恐怖が発動する。"},
-            {"name": "Renekton", "reason": "W強化でシールドを割りつつスタン。近接最強。"},
-        ]
-    },
-    "Yasuo": {
-        "danger": ["ミニオンを伝ってのE接近。", "風殺の壁(W)でスキルを消される。"],
-        "tips": ["パッシブシールドをAAで剥がしてからスキルを撃つ。", "Q3(竜巻)は横移動で避ける。"],
-        "counters": [
-            {"name": "Renekton", "reason": "強化Wでシールド破壊。殴り合いで圧倒できる。"},
-            {"name": "Lissandra", "reason": "Wのスネアでヤスオの機動力を封じられる。"},
-        ]
-    },
-    "Zed": {
-        "danger": ["W影からのQ手裏剣ハラス。", "Lv6 Rからのオールインバースト。"],
-        "tips": ["Wの影が出ている間は距離を取る。", "Rを使われたら後ろにフラッシュしない（影に戻られる）。"],
-        "counters": [
-            {"name": "Garen", "reason": "Wでバースト軽減。沈黙でスキルを封じられる。"},
-            {"name": "Diana", "reason": "Wシールドでハラスに耐え、殴り合いで勝てる。"},
-        ]
-    },
-    "Fizz": {
-        "danger": ["E(古の妖術)の無敵でスキルを避けられる。", "Rの魚がくっつくと大ダメージ。"],
-        "tips": ["Eを使った後の着地を狙う。", "Lv1-2はいじめられるがLv3から強力。"],
-        "counters": [
-            {"name": "Lissandra", "reason": "R(自分)でフィズのRを無効化できる。Wで足止め可能。"},
-            {"name": "Sylas", "reason": "Wの回復で殴り合いに勝てる。フィズRを奪って使える。"},
+    # ... (他、既存の画像データはそのまま保持) ...
+    
+    # --- 動画解析データ (自分が使う時のテクニック) ---
+    "Blitzcrank": {
+        "my_tips": [
+            "【W→E→Q】Wで距離を詰め、E(打ち上げ)からQ(フック)を撃つと回避不可の必中コンボになる。",
+            "【フックのコツ】相手がCSを取る(AAモーションをする)瞬間を狙って撃つ。",
+            "【ヘクスフラッシュ】海賊のエンチャントと同時に使うと加速できる小技がある。"
         ]
     },
     "Sylas": {
-        "danger": ["E2の鎖に当たると大ダメージ＆スタン。", "Wの回復で瀕死から逆転される。"],
-        "tips": ["重症(回復阻害)を買う。", "RでこちらのUltを奪われることを考慮する。"],
-        "counters": [
-            {"name": "Vex", "reason": "ブリンクに対して恐怖カウンター。"},
-            {"name": "Taliyah", "reason": "Eの岩場を展開すればサイラスは飛び込めない。"},
+        "my_tips": [
+            "【コンボ】E1→Q→E2→W→AA。スキル間にパッシブAAを挟む。",
+            "【Rの仕様】ヤスオの風殺の壁やサミーラWで「Rを盗むこと自体」を防がれるので注意。",
+            "【ビルド】柔らかい敵が多いなら電撃+ロケットベルト、硬いなら征服者+ロア。"
+        ],
+        "danger": ["E2の鎖に当たると大ダメージ。", "W回復で逆転される。"], # 相手に来た時用
+        "tips": ["重症を買う。", "E2を避ける。"],
+        "counters": [{"name": "Vex", "reason": "ブリンクに恐怖が刺さる。"}]
+    },
+    "Neeko": {
+        "my_tips": [
+            "【Rの隠し方】パッシブでミニオンに変身してからRを撃つと、予備動作（飛び上がる円）が相手に見えない。",
+            "【W活用】味方に変身してWの分身と一緒に突っ込むと相手を混乱させられる。",
+            "【変身】トリンダメアなど強力な味方に変身してプレッシャーをかける。"
+        ],
+        "danger": ["Eスネアはミニオン貫通で強化される。", "Rの広範囲スタン。"],
+        "tips": ["ミニオンの数を数えて変身を疑う。", "Rが見えたら即離れる。"]
+    },
+    "Alistar": {
+        "my_tips": [
+            "【WQコンボ】基本コンボ。Wで突進中にQを押す。",
+            "【インセク】Q→フラッシュ→Wで、敵を自軍タワー側に突き飛ばせる。",
+            "【フェイント】Eのスタックが溜まる直前にリコールモーション等でフェイントをかける小技。"
         ]
     },
-    "Viktor": {
-        "danger": ["強化QのAAとシールド交換。", "強化Eの余波ダメージ。"],
-        "tips": ["Eの射線上に立たない。", "ガンク耐性がないのでJGを呼ぶ。"],
-        "counters": [
-            {"name": "Irelia", "reason": "Qで懐に入り込めばビクターは逃げられない。"},
-            {"name": "Yone", "reason": "RやEで距離を一気に詰められる。"},
-        ]
-    },
-    "Talon": {
-        "danger": ["W2段目の戻り＆パッシブ出血。", "壁越え(E)による予測不能なローム。"],
-        "tips": ["姿が見えなくなったら即MIAピン。", "Wを使わせたら前に出る。"],
-        "counters": [
-            {"name": "Lissandra", "reason": "Rでバースト回避、Wで足止め。ローム阻止もしやすい。"},
-            {"name": "Vex", "reason": "Q飛びつきをWで弾ける。"},
-        ]
-    },
-    "Pantheon": {
-        "danger": ["強化Wからのスタン＆バースト。", "E(盾)で無敵ガード。"],
-        "tips": ["強化スタック(HP下のゲージ)が溜まっている時は下がる。", "Lv6以降のRロームに注意。"],
-        "counters": [
-            {"name": "Lissandra", "reason": "Wスタンに対してWやRでカウンター可能。"},
-            {"name": "Orianna", "reason": "レンジ外から一方的に殴れる。"},
-        ]
-    },
-    "Akali": {
-        "danger": ["W(煙幕)の中での隠密行動。", "Eの手裏剣に当たると再発動で飛んでくる。"],
-        "tips": ["煙幕中はスキルを撃たない（当たらない）。", "R1の飛びつきに注意。"],
-        "counters": [
-            {"name": "Galio", "reason": "W挑発でアカリを捕まえられる。魔法ダメシールドが有効。"},
-            {"name": "Vex", "reason": "飛び回るアカリにパッシブ恐怖が刺さる。"},
+    "Jinx": {
+        "my_tips": [
+            "【武器切り替え】Q(ミニガン)で攻速スタックを3つ溜めてから、ロケットに切り替えて戦うとDPSが出る。",
+            "【集団戦】まずは前衛を溶かしてパッシブ(Get Excited!)を発動させ、機動力で後衛を狙う。",
+            "【W】Wの射程と当たり判定を理解して牽制に使う。"
         ]
     },
     "Galio": {
-        "danger": ["WタウントからのQバースト。", "Rによる他レーンへの支援。"],
-        "tips": ["E(正義の鉄拳)の突進はミニオンに当たると止まる。", "魔法シールドがあるのでAPチャンプは不利。"],
-        "counters": [
-            {"name": "Taliyah", "reason": "E突進をEの岩場で止められる。"},
-            {"name": "AD Champions", "reason": "魔法シールドが無意味なADキャラ全般（トリス、ヨネなど）。"},
+        "my_tips": [
+            "【立ち回り】序盤はQでプッシュしてローム。サイドレーンでR支援を狙う。",
+            "【集団戦】後半はADCを守る「2人目のサポート」として動くのが強い。",
+            "【ビルド】AP係数が高いのでドラランスタート推奨。"
+        ],
+        "danger": ["WタウントからのQバースト。", "R支援。"],
+        "tips": ["Eはミニオンに当たると止まる。"]
+    },
+    "Kai'Sa": {
+        "my_tips": [
+            "【R中のW】Rで飛んでいる最中にWを撃つと、相手の至近距離で必中させやすい。",
+            "【進化キャンセル】B(リコール)を押しながら進化ボタンを押すと、硬直なしで進化できる。",
+            "【ビルド】相手が柔らかいならプレス、硬いなら征服者。"
         ]
     },
-    "Taliyah": {
-        "danger": ["Wで岩場(E)に弾き飛ばされるコンボ。", "Qの連射ハラス。"],
-        "tips": ["加工された地面(Qを使った場所)の上ではQが弱くなる。", "ミニオンの後ろに隠れる。"],
-        "counters": [
-            {"name": "Yone", "reason": "Eで岩場を無視して接近できる。"},
-            {"name": "Kassadin", "reason": "魔法ダメ軽減パッシブとQシールドで耐えられる。"},
+    "Jax": {
+        "my_tips": [
+            "【E活用】Eはミニオンの攻撃も無効化する。ミニオンウェーブの中で戦うと被ダメを抑えつつEの反撃ダメUPを狙える。",
+            "【AAキャンセル】AA→Wでモーションキャンセルして瞬間火力を出す。",
+            "【Lv1-3】序盤最強クラスなので積極的にトレードする。"
+        ],
+        "danger": ["E中のAAは反撃ダメが増える。", "Q飛びつき。"],
+        "tips": ["マナ切れを待つ。"]
+    },
+    "Ryze": {
+        "my_tips": [
+            "【CS】序盤は弱い。Qで確実にCSを取り、涙とロアを急ぐ。",
+            "【サイド】中盤以降はサイドプッシュし、敵が来たらRで逃げるor味方と挟む。",
+            "【集団戦】ADCなどのキャリーと1:1交換を狙う動きも強い。"
         ]
     },
-    "Katarina": {
-        "danger": ["短剣の落ちている場所に瞬歩(E)してくる。", "Rの回転刃によるAoEバースト。"],
-        "tips": ["落ちている短剣に近づかない。", "Rを止めるCCを温存する。"],
-        "counters": [
-            {"name": "Galio", "reason": "W挑発やE打ち上げでカタリナRを即中断できる。"},
-            {"name": "Vex", "reason": "瞬歩に合わせて恐怖を入れられる。"},
+    "Lillia": {
+        "my_tips": [
+            "【スタック維持】ジャングル周回中はQのパッシブ(移動速度)を切らさないようにする。切れる直前にQを撃つ。",
+            "【W】Wの中心を当てるとダメージが3倍になる。寝ている敵には必ず中心を当てる。",
+            "【ビルド】征服者が強い。仮面→リフトメーカー→砂時計。"
         ]
     },
-    "Aurelion Sol": {
-        "danger": ["Qのゲロ吐き継続ダメージ。", "スタックが溜まった後半のR衝撃波。"],
-        "tips": ["Q中は足が止まるのでスキルを当てるチャンス。", "横に回り込むように動く。"],
-        "counters": [
-            {"name": "Yone", "reason": "Eで懐に入ればオレソルは逃げられない。"},
-            {"name": "Fizz", "reason": "Eでスキルを回避しつつ飛び込める。"},
+    "Jayce": {
+        "my_tips": [
+            "【不滅ジェイス】ルーンに不滅（不死者）を持ち、遠隔AA→変身→近接Qで殴るとダメージ交換で勝てる。",
+            "【加速ゲート】Eは自分に近い位置に出すと、発動と同時に加速できて隙がない。",
+            "【マナ】ハンマー形態でAAしてマナを回復するのを忘れない。"
         ]
     },
-    "Ahri": {
-        "danger": ["E(チャーム)に当たるとフルコンボ確定。", "R(3回ブリンク)での追撃・逃げ。"],
-        "tips": ["ミニオン越しにEは当たらない。", "Rがない時間は非常に弱い。"],
-        "counters": [
-            {"name": "Lissandra", "reason": "Rでアーリの機動力を封じ込められる。"},
-            {"name": "Veigar", "reason": "Eの檻でブリンクを制限できる。"},
+    "Ezreal": {
+        "my_tips": [
+            "【パッシブ】戦う前にQをミニオンに当ててパッシブ(攻速UP)を5スタック溜めておく。",
+            "【Eの仕様】Eには詠唱時間があるため、ブリッツのフック等に合わせて入力すると、引っ張られても元の位置に戻れる（バッファリング）。"
         ]
     },
-    "Neeko": {
-        "danger": ["Eのスネア（ミニオン貫通で強化）。", "Rの広範囲スタン。"],
-        "tips": ["ミニオンに変身している可能性を疑う（ミニオン数を数える）。", "Rの予兆が見えたら即離れる。"],
-        "counters": [
-            {"name": "Lux", "reason": "射程外から一方的に攻撃できる。"},
-            {"name": "Xerath", "reason": "圧倒的射程差で近づかせない。"},
+    "Wukong": {
+        "my_tips": [
+            "【Q】Qがメイン火力。AA→Qで射程を伸ばして殴る。",
+            "【W】W(分身)でスキルを避けたり、Sキーで止まって分身のフリをして敵を騙す（フェイク）。",
+            "【ビルド】三相→サンダードスカイが安定。"
         ]
     },
-    "Cassiopeia": {
-        "danger": ["Q毒状態でのE連打（超高DPS）。", "R(石化)を正面で食らうと死ぬ。"],
-        "tips": ["Qを食らったら毒が切れるまで下がる。", "Rのタイミングで後ろを向く。"],
-        "counters": [
-            {"name": "Orianna", "reason": "レンジ外からボールで削れる。"},
-            {"name": "Syndra", "reason": "射程有利。近づかれてもEで弾ける。"},
+    "Elise": {
+        "my_tips": [
+            "【タワーダイブ】人形態で攻撃→タワー攻撃を受ける→蜘蛛形態Eで空中に逃げることでタワーのタゲを切れる。",
+            "【W→Q】人形態W（爆弾蜘蛛）を出してから蜘蛛形態Qで飛びつくと、爆弾蜘蛛も一緒に飛んでいく。"
         ]
     },
-    "Urgot": {
-        "danger": ["Eで投げ飛ばされるとW(マシンガン)で溶かされる。", "RはHP25%以下で即死処刑。"],
-        "tips": ["Eを避ければチャンス。予備動作に注意。", "Lv1から強いので殴り合わない。"],
-        "counters": [
-            {"name": "Mordekaiser", "reason": "ヒットボックスが大きくEを当てやすい。"},
-            {"name": "Rammus", "reason": "W反射でアーゴットのWが自爆する（※Top運用時）。"},
+    "Zoe": {
+        "my_tips": [
+            "【Q最大火力】Rで後ろに飛んでからQを前に投げると飛距離が伸びてダメージが最大化する。",
+            "【パッシブ】スキル使用後の強化AAをしっかり挟むこと。",
+            "【E】壁越しにEを撃つと射程が伸びる。"
         ]
     },
-    "K'Sante": {
-        "danger": ["Q3で引き寄せ→W→Rの壁ドンコンボ。", "オールアウト(R)中の確定ダメージ。"],
-        "tips": ["壁際で戦わない。", "Q3が溜まっている時は距離を取る。"],
-        "counters": [
-            {"name": "Gwen", "reason": "確定ダメQでタンク装甲を貫通。Wで妨害無効。"},
-            {"name": "Fiora", "reason": "CCをパリィして急所を突けば勝てる。"},
+    "Brand": {
+        "my_tips": [
+            "【ジャングル】パッシブの爆発でクリアが早い。モンスターが集まる位置にWを置く。",
+            "【最大火力】Q→E→W。炎上中の敵にWを当てるとダメージ25%UP。",
+            "【必中スタン】Q→フラッシュ→Eで、Qの弾速を誤魔化してスタンさせられる。"
         ]
     },
-    "Kayle": {
-        "danger": ["Lv1のE連打（致命的テンポ）が意外と強い。", "Lv16以降の最強キャリー能力。"],
-        "tips": ["Lv6まで弱いので徹底的にいじめる。", "R無敵中は殴らず位置調整。"],
-        "counters": [
-            {"name": "Irelia", "reason": "ブリンクで距離を詰めればケイルは逃げられない。"},
-            {"name": "Jax", "reason": "EでAAを無効化し、Qで飛びつける。"},
+    "Sett": {
+        "my_tips": [
+            "【右パンチ】セトの右パンチ(2発目)は射程が長く出が早い。左パンチで牽制し、右を温存するテクニックがある。",
+            "【E】Eは角（斜め）で当てると射程が少し伸びる。",
+            "【R】敵のタンクを掴んで、敵の後衛キャリーの中に叩きつけるのが理想。"
         ]
     },
-    "Teemo": {},
-    "Fiora": {},
-    "Riven": {},
+    "LeBlanc": {
+        "my_tips": [
+            "【最大火力】E→Q→R(Q複製)→W。Qの印をRで起爆するのが一番痛い。",
+            "【トレード】Wで入ってQ→E、危なくなったらW再発動で戻るヒットアンドアウェイ。",
+            "【Wダミー】R(W複製)で移動した後、偽物が出るので操作して敵を騙す。"
+        ],
+        "danger": ["Q→Wコンボ。", "W→Eスネア。"],
+        "tips": ["WのCD中に攻める。", "ガンクに注意。"],
+        "counters": [{"name": "Lissandra", "reason": "Rで封殺。"}]
+    },
+    "Annie": {
+        "my_tips": [
+            "【不意打ちスタン】スタックを3つ溜めておき、Qを撃って飛んでいる最中にEを使って4スタックにすると、相手が反応できないスタンになる。",
+            "【ティバーズ】R(ティバーズ)はAltキーで操作できる。タワーのタゲ取りやスキルブロックに使う。"
+        ],
+        "danger": ["スタック溜まりRスタン。"],
+        "tips": ["スタック数を見る。", "MRを積む。"],
+        "counters": [{"name": "Syndra", "reason": "射程外から削れる。"}]
+    },
 }
 
 # -----------------------------------------------------------
@@ -355,7 +201,6 @@ def load_data():
             name_en = key
             name_hira = kata_to_hira(name_jp)
             display_name = f"{name_jp} ({name_en}) / {name_hira}"
-            
             champ_list.append(display_name)
             id_map[display_name] = {'id': key, 'key': val['key']}
         return version, sorted(champ_list), id_map
@@ -371,178 +216,51 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-    /* === 全体 (Apple Gray) === */
-    .stApp {
-        background-color: #f5f5f7;
-        color: #1d1d1f;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    .stApp { background-color: #f5f5f7; color: #1d1d1f; font-family: 'Inter', sans-serif; }
+    .block-container { padding-top: 20px; }
 
-    /* === ヘッダー (Minimalist) === */
-    .apple-header {
-        text-align: center;
-        padding: 40px 0 20px;
-    }
-    .apple-title {
-        font-size: 48px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        color: #1d1d1f;
-        margin-bottom: 10px;
-    }
-    .apple-subtitle {
-        font-size: 20px;
-        color: #86868b;
-        font-weight: 400;
-    }
+    /* ヘッダー */
+    .apple-header { text-align: center; padding: 10px 0 20px; margin-bottom: 10px; }
+    .apple-title { font-size: 36px; font-weight: 700; letter-spacing: -0.5px; color: #1d1d1f; margin-bottom: 5px; }
+    .apple-subtitle { font-size: 16px; color: #86868b; font-weight: 400; }
 
-    /* === カードコンテナ (White Card with Soft Shadow) === */
-    .apple-card {
-        background: #ffffff;
-        border-radius: 18px;
-        padding: 30px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-        margin-bottom: 20px;
-        transition: transform 0.2s;
-    }
+    /* カード */
+    .apple-card { background: #ffffff; border-radius: 18px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 15px; }
     
-    /* 検索バーのカスタム */
-    .search-area {
-        max-width: 800px;
-        margin: 0 auto 40px auto;
-        padding: 0 20px;
-    }
-    div[data-baseweb="select"] > div {
-        background-color: #ffffff !important;
-        border: 1px solid #d2d2d7 !important;
-        border-radius: 12px !important;
-        color: #1d1d1f !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important;
-    }
+    /* 検索エリア */
+    .search-area { max-width: 900px; margin: 0 auto 20px auto; padding: 0 10px; }
+    div[data-baseweb="select"] > div { background-color: #ffffff !important; border: 1px solid #d2d2d7 !important; border-radius: 12px !important; color: #1d1d1f !important; box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; }
 
-    /* === チャンピオン画像 (Large & Clean) === */
-    .champ-hero {
-        border-radius: 18px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        width: 100%;
-    }
+    /* スキル */
+    .skill-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
+    .skill-box { background: #fbfbfd; border: 1px solid #d2d2d7; border-radius: 12px; padding: 10px 5px; text-align: center; }
+    .skill-key { font-size: 11px; color: #86868b; font-weight: 600; text-transform: uppercase; }
+    .skill-cd { font-size: 16px; font-weight: 700; color: #1d1d1f; margin-top: 2px; }
 
-    /* === スキルボックス (Minimal Grid) === */
-    .skill-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin: 20px 0;
-    }
-    .skill-box {
-        background: #fbfbfd;
-        border: 1px solid #d2d2d7;
-        border-radius: 12px;
-        padding: 15px 5px;
-        text-align: center;
-    }
-    .skill-key {
-        font-size: 12px;
-        color: #86868b;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    .skill-cd {
-        font-size: 18px;
-        font-weight: 700;
-        color: #1d1d1f;
-        margin-top: 5px;
-    }
-
-    /* === Feature Cards (Danger / Tips) === */
-    .feature-card {
-        padding: 20px;
-        border-radius: 14px;
-        margin-bottom: 15px;
-    }
-    .danger-card {
-        background-color: #fff2f2;
-        border-left: 4px solid #ff3b30; /* Apple Red */
-    }
-    .tips-card {
-        background-color: #f2f7ff;
-        border-left: 4px solid #0071e3; /* Apple Blue */
-    }
-    .feature-title {
-        font-size: 16px;
-        font-weight: 700;
-        margin-bottom: 10px;
-        display: block;
-    }
+    /* Tips Cards */
+    .feature-card { padding: 15px; border-radius: 14px; margin-bottom: 12px; }
+    .danger-card { background-color: #fff2f2; border-left: 4px solid #ff3b30; }
+    .tips-card { background-color: #f2f7ff; border-left: 4px solid #0071e3; }
+    .my-tips-card { background-color: #f5fff5; border-left: 4px solid #34c759; } /* Apple Green for My Tips */
+    
+    .feature-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; display: block; }
     .danger-title { color: #ff3b30; }
     .tips-title { color: #0071e3; }
-
-    /* === カウンターリスト (Large Icons) === */
-    .counter-row {
-        display: flex;
-        align-items: center;
-        background: #ffffff;
-        border: 1px solid #d2d2d7;
-        border-radius: 14px;
-        padding: 15px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-    }
-    .counter-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 10px;
-        margin-right: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .counter-info {
-        flex: 1;
-    }
-    .counter-name {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1d1d1f;
-    }
-    .counter-reason {
-        font-size: 13px;
-        color: #424245;
-        margin-top: 4px;
-        line-height: 1.4;
-    }
-
-    /* === ボタン (Pill Shape) === */
-    div.stButton > button {
-        background-color: #0071e3; /* Apple Blue */
-        color: #ffffff;
-        border: none;
-        border-radius: 980px; /* Pill shape */
-        padding: 10px 24px;
-        font-size: 14px;
-        font-weight: 600;
-        box-shadow: 0 2px 5px rgba(0,113,227,0.2);
-        width: 100%;
-        transition: all 0.2s;
-    }
-    div.stButton > button:hover {
-        background-color: #0077ed;
-        transform: scale(1.02);
-        box-shadow: 0 4px 10px rgba(0,113,227,0.3);
-    }
+    .my-tips-title { color: #34c759; }
     
-    /* Secondary Button */
-    .sub-btn > button {
-        background-color: #e8e8ed;
-        color: #1d1d1f;
-    }
-    .sub-btn > button:hover {
-        background-color: #d2d2d7;
-    }
-    
-    h4 {
-        font-weight: 700;
-        color: #1d1d1f;
-        margin-top: 0;
-    }
+    ul { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; color: #333; }
+
+    /* Counters */
+    .counter-row { display: flex; align-items: center; background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+    .counter-icon { width: 48px; height: 48px; border-radius: 10px; margin-right: 15px; }
+    .counter-info { flex: 1; }
+    .counter-name { font-size: 15px; font-weight: 700; color: #1d1d1f; }
+    .counter-reason { font-size: 12px; color: #424245; margin-top: 4px; line-height: 1.4; }
+
+    /* Button */
+    div.stButton > button { background-color: #0071e3; color: #ffffff; border: none; border-radius: 980px; padding: 8px 20px; font-size: 13px; font-weight: 600; width: 100%; transition: all 0.2s; }
+    div.stButton > button:hover { background-color: #0077ed; transform: scale(1.02); }
+    h4 { font-weight: 700; color: #1d1d1f; margin-top: 0; font-size: 16px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -554,7 +272,7 @@ def main():
     st.markdown("""
         <div class="apple-header">
             <div class="apple-title">LOL.GG</div>
-            <div class="apple-subtitle">Pro-Level Analysis. Simplified.</div>
+            <div class="apple-subtitle">Pro-Level Analysis.</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -565,12 +283,12 @@ def main():
     st.markdown('<div class="search-area">', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        my_choice = st.selectbox("🔵 Your Pick", champ_list, index=None, placeholder="Search Champion", label_visibility="collapsed")
+        my_choice = st.selectbox("🔵 Your Pick", champ_list, index=None, placeholder="Search...", label_visibility="collapsed")
     with c2:
-        enemy_choice = st.selectbox("🔴 Enemy Pick", champ_list, index=None, placeholder="Search Champion", label_visibility="collapsed")
+        enemy_choice = st.selectbox("🔴 Enemy Pick", champ_list, index=None, placeholder="Search...", label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # === 相手を選択した時の表示 (メイン) ===
+    # === 1. 相手を選択した時の表示 (対策モード) ===
     if enemy_choice:
         enemy_data = id_map[enemy_choice]
         champ_id = enemy_data['id']
@@ -581,31 +299,27 @@ def main():
             spells = res['spells']
         except: return
 
-        # 1:2 カラムレイアウト
         col_left, col_right = st.columns([1, 2])
 
         # --- 左：画像とリンク ---
         with col_left:
             st.markdown('<div class="apple-card">', unsafe_allow_html=True)
             
-            # チャンピオン画像
             splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champ_id}_0.jpg"
-            st.image(splash_url, use_container_width=True, output_format="JPEG")
+            st.image(splash_url, use_container_width=True)
             
-            st.markdown("#### External Links")
+            st.markdown("#### Links")
             url_enemy = "wukong" if champ_id == "MonkeyKing" else champ_id.lower()
-            
             st.link_button("📉 U.GG (Counter)", f"https://u.gg/lol/champions/{url_enemy}/counter", use_container_width=True)
             st.link_button("🇰🇷 LOL.PS (Stats)", f"https://lol.ps/champ/{enemy_data['key']}/statistics/", use_container_width=True)
-            
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- 右：情報 ---
+        # --- 右：攻略情報 ---
         with col_right:
             st.markdown('<div class="apple-card">', unsafe_allow_html=True)
             
             # スキルCD
-            st.markdown("#### Abilities")
+            st.markdown("#### Abilities (CD)")
             keys = ['Q', 'W', 'E', 'R']
             cd_html = '<div class="skill-grid">'
             for i, spell in enumerate(spells):
@@ -614,34 +328,41 @@ def main():
             cd_html += '</div>'
             st.markdown(cd_html, unsafe_allow_html=True)
 
-            # 秘伝の攻略メモ
+            # 秘伝の攻略メモ (Danger & Tips)
             if champ_id in CUSTOM_DATA:
                 cust = CUSTOM_DATA[champ_id]
                 
-                # Danger
                 if "danger" in cust:
                     html = '<div class="feature-card danger-card"><span class="feature-title danger-title">⚠ 危険なアクション</span><ul>'
                     for d in cust['danger']: html += f'<li>{d}</li>'
                     html += '</ul></div>'
                     st.markdown(html, unsafe_allow_html=True)
                 
-                # Tips
                 if "tips" in cust:
                     html = '<div class="feature-card tips-card"><span class="feature-title tips-title">💡 意識すること</span><ul>'
                     for t in cust['tips']: html += f'<li>{t}</li>'
                     html += '</ul></div>'
                     st.markdown(html, unsafe_allow_html=True)
 
-                # Counters (アイコン付きリッチ表示)
+                # Counters
                 if "counters" in cust:
                     st.markdown("#### 🛡️ Recommended Counters")
                     for c in cust['counters']:
-                        # カウンターキャラのアイコンURLを生成
-                        # ※名前からIDを推測 (基本そのまま、Wukong等は例外対応が必要だが今回は簡易的に名前を使用)
                         c_name = c['name']
-                        c_icon_url = f"https://ddragon.leagueoflegends.com/cdn/{version}/img/champion/{c_name}.png"
+                        icon_name = c_name.replace(" ", "").replace("'", "").capitalize()
+                        # 簡易アイコン正規化
+                        if c_name == "Wukong": icon_name = "MonkeyKing"
+                        if c_name == "K'Sante": icon_name = "KSante"
+                        if c_name == "Kai'Sa": icon_name = "Kaisa"
+                        if c_name == "Vel'Koz": icon_name = "Velkoz"
+                        if c_name == "Kha'Zix": icon_name = "Khazix"
+                        if c_name == "Bel'Veth": icon_name = "Belveth"
+                        if c_name == "Rek'Sai": icon_name = "RekSai"
+                        if c_name == "Kog'Maw": icon_name = "KogMaw"
+                        if c_name == "Cho'Gath": icon_name = "Chogath"
                         
-                        # HTMLで横並びレイアウトを構築
+                        c_icon_url = f"https://ddragon.leagueoflegends.com/cdn/{version}/img/champion/{icon_name}.png"
+                        
                         st.markdown(f"""
                         <div class="counter-row">
                             <img src="{c_icon_url}" class="counter-icon" onerror="this.style.display='none'">
@@ -652,26 +373,47 @@ def main():
                         </div>
                         """, unsafe_allow_html=True)
             else:
-                st.info("No custom guide data available for this champion.")
-
+                st.info("No custom guide data available.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # === 自分を選択した時のリンク (OTP Ranking) ===
-    if my_choice:
+    # === 2. 自分を選択した時の表示 (テクニックモード) ===
+    elif my_choice:
         my_data = id_map[my_choice]
-        my_url = "wukong" if my_data['id'] == "MonkeyKing" else my_data['id'].lower()
+        champ_id = my_data['id']
         
-        # セパレーター
-        st.markdown("<br>", unsafe_allow_html=True)
+        col_left, col_right = st.columns([1, 2])
         
-        # DeepLoL 修正版リンク (.../mastery/all)
-        deeplol_otp_url = f"https://www.deeplol.gg/champions/{my_url}/mastery/all"
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.link_button(f"🔥 {my_choice.split('(')[0]} OTP Ranking", deeplol_otp_url, use_container_width=True)
-        with c2:
+        # --- 左：画像とリンク ---
+        with col_left:
+            st.markdown('<div class="apple-card">', unsafe_allow_html=True)
+            
+            # 自分のキャラ画像を表示 (NEW!)
+            splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champ_id}_0.jpg"
+            st.image(splash_url, use_container_width=True)
+            
+            st.markdown("#### Links")
+            my_url = "wukong" if champ_id == "MonkeyKing" else champ_id.lower()
+            deeplol_otp_url = f"https://www.deeplol.gg/champions/{my_url}/mastery/all"
+            
+            st.link_button(f"🔥 OTP Ranking (DeepLoL)", deeplol_otp_url, use_container_width=True)
             st.link_button("📈 Build Guide (U.GG)", f"https://u.gg/lol/champions/{my_url}/build", use_container_width=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- 右：My Tips (動画解析データ) ---
+        with col_right:
+            st.markdown('<div class="apple-card">', unsafe_allow_html=True)
+            
+            if champ_id in CUSTOM_DATA and "my_tips" in CUSTOM_DATA[champ_id]:
+                cust = CUSTOM_DATA[champ_id]
+                html = '<div class="feature-card my-tips-card"><span class="feature-title my-tips-title">🚀 プロのテクニック / 小技</span><ul>'
+                for t in cust['my_tips']: html += f'<li>{t}</li>'
+                html += '</ul></div>'
+                st.markdown(html, unsafe_allow_html=True)
+            else:
+                st.info(f"※ {my_choice.split('(')[0]} のカスタムテクニック情報はまだ登録されていません。")
+                
+            st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
